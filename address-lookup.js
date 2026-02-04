@@ -12,6 +12,8 @@
 // ---------------------------------------------------------------------------
 
 class AddressLookup extends HTMLElement {
+  #$;
+
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -39,15 +41,17 @@ class AddressLookup extends HTMLElement {
           </p>
         </div>
 
-        <label class="label" for="token-input">RegionFlex API Token</label>
-        <input
-          id="token-input"
-          type="password"
-          placeholder="Paste your bearer token here"
-          class="input"
-          value="${this.#escapeAttr(token)}"
-        />
-        <p class="hint">Token is only used in-browser and never sent anywhere else.</p>
+        <div id="token-section" class="${token ? "hidden" : ""}">
+          <label class="label" for="token-input">RegionFlex API Token</label>
+          <input
+            id="token-input"
+            type="password"
+            placeholder="Paste your bearer token here"
+            class="input"
+            value="${this.#escapeAttr(token)}"
+          />
+          <p class="hint">Token is only used in-browser and never sent anywhere else.</p>
+        </div>
 
         <label class="label" for="address-input">Address</label>
         <div class="row">
@@ -166,7 +170,7 @@ class AddressLookup extends HTMLElement {
   async #doLookup() {
     const $ = this.#$;
     const address = $("#address-input").value.trim();
-    const token   = $("#token-input").value.trim();
+    const token   = this.getAttribute("token") || $("#token-input").value.trim();
 
     if (!address) return this.#showError("Please enter an address.");
     if (!token)   return this.#showError("Please enter your RegionFlex API token.");
