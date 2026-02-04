@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Address District Lookup — Demo</title>
+  <style>
+    body {
+      margin: 0; padding: 3rem 1rem;
+      background: #f9fafb;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .page-title {
+      max-width: 36rem; margin: 0 auto 0.5rem;
+      font-size: 0.875rem; color: #6b7280; text-transform: uppercase;
+      letter-spacing: 0.05em; font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <p class="page-title">Embeddable Widget Demo</p>
+
+  <!--
+    Drop the <address-lookup> element anywhere in your page.
+    Optionally pass a token attribute to pre-fill the token field:
+
+      <address-lookup token="rf_live_abc123"></address-lookup>
+  -->
+  <address-lookup></address-lookup>
+
+  <script src="address-lookup.js"></script>
+</body>
+</html>
