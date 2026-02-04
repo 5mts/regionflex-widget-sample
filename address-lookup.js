@@ -61,7 +61,7 @@ class AddressLookup extends HTMLElement {
             placeholder="e.g. 1600 Pennsylvania Ave NW, Washington, DC"
             class="input flex-1"
           />
-          <button id="lookup-btn" class="btn">Look Up</button>
+          <button id="lookup-btn" class="btn"><span class="btn-label">Look Up</span></button>
         </div>
 
         <div id="status" class="status hidden"></div>
@@ -91,63 +91,60 @@ class AddressLookup extends HTMLElement {
   }
 
   #styles() {
+    // Minimal structural styles only — inherits font, color, size from host page.
     return `
-      :host { display: block; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+      :host { display: block; }
 
-      .wrapper    { max-width: 36rem; margin: 0 auto; display: flex; flex-direction: column; gap: 0.75rem; }
-      .header h2  { margin: 0; font-size: 1.25rem; font-weight: 700; }
-      .subtitle   { margin: 0.25rem 0 0; font-size: 0.875rem; color: #6b7280; }
-      .subtitle a { color: #2563eb; text-decoration: underline; }
+      * { box-sizing: border-box; font: inherit; color: inherit; }
 
-      .label      { font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: -0.25rem; }
-      .hint       { margin: -0.25rem 0 0; font-size: 0.75rem; color: #9ca3af; }
+      .wrapper  { display: flex; flex-direction: column; gap: 0.75rem; }
+      h2        { margin: 0; font-size: 1.25em; font-weight: 700; }
+      .subtitle { margin: 0.25rem 0 0; opacity: 0.6; }
+      .subtitle a { text-decoration: underline; }
+
+      .label { font-weight: 500; margin-bottom: -0.25rem; }
+      .hint  { margin: -0.25rem 0 0; font-size: 0.85em; opacity: 0.4; }
 
       .input {
-        display: block; width: 100%; box-sizing: border-box;
-        border: 1px solid #d1d5db; border-radius: 0.375rem;
-        padding: 0.5rem 0.75rem; font-size: 0.875rem;
-        outline: none; transition: border-color 0.15s;
+        display: block; width: 100%;
+        border: 1px solid currentColor; opacity: 0.7;
+        border-radius: 0.375rem; padding: 0.5rem 0.75rem;
       }
-      .input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+      .input:focus { opacity: 1; outline: 2px solid currentColor; outline-offset: 1px; }
 
-      .row   { display: flex; gap: 0.5rem; }
+      .row    { display: flex; gap: 0.5rem; }
       .flex-1 { flex: 1; }
 
       .btn {
         flex-shrink: 0; padding: 0.5rem 1rem;
-        background: #2563eb; color: #fff; border: none; border-radius: 0.375rem;
-        font-size: 0.875rem; font-weight: 500; cursor: pointer;
-        transition: background 0.15s;
+        background: currentColor; border: none; border-radius: 0.375rem;
+        font-weight: 500; cursor: pointer;
       }
-      .btn:hover:not(:disabled) { background: #1d4ed8; }
+      .btn-label { color: white; mix-blend-mode: difference; }
       .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-      .status { font-size: 0.875rem; color: #4b5563; }
-      .error  { font-size: 0.875rem; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 0.375rem; padding: 0.75rem; }
+      .error { border: 1px solid #b91c1c; color: #b91c1c; border-radius: 0.375rem; padding: 0.75rem; }
 
       .card {
-        border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem;
-        background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-        animation: fadeIn 0.3s ease-in;
+        border: 1px solid currentColor; opacity: 0.8;
+        border-radius: 0.5rem; padding: 1rem;
       }
-      .card-title { margin: 0 0 0.5rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; }
+      .card-title { margin: 0 0 0.5rem; font-size: 0.8em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.5; }
 
-      .coord-row  { display: flex; gap: 1.5rem; font-size: 0.875rem; color: #4b5563; margin-top: 0.5rem; }
+      .coord-row { display: flex; gap: 1.5rem; margin-top: 0.5rem; opacity: 0.7; }
 
       ul { list-style: none; margin: 0; padding: 0; }
-      li { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; font-size: 0.875rem; border-bottom: 1px solid #f3f4f6; }
+      li { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid currentColor; opacity: 0.8; }
       li:last-child { border-bottom: none; }
-      .district-name { font-weight: 500; color: #111827; }
-      .district-id   { font-size: 0.75rem; color: #9ca3af; }
+      .district-name { font-weight: 500; }
+      .district-id   { font-size: 0.85em; opacity: 0.5; }
 
-      .empty  { font-size: 0.875rem; color: #9ca3af; font-style: italic; margin: 0.5rem 0 0; }
+      .empty  { font-style: italic; opacity: 0.4; margin: 0.5rem 0 0; }
 
-      .footer   { font-size: 0.75rem; color: #9ca3af; padding-top: 0.5rem; }
-      .footer a { color: inherit; text-decoration: underline; }
+      .footer   { font-size: 0.85em; opacity: 0.4; padding-top: 0.5rem; }
+      .footer a { text-decoration: underline; }
 
       .hidden { display: none !important; }
-
-      @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     `;
   }
 
@@ -285,8 +282,8 @@ class AddressLookup extends HTMLElement {
   // -------------------------------------------------------------------------
   #setLoading(on) {
     const btn = this.#$("#lookup-btn");
-    btn.disabled    = on;
-    btn.textContent = on ? "Looking up…" : "Look Up";
+    btn.disabled = on;
+    btn.querySelector(".btn-label").textContent = on ? "Looking up…" : "Look Up";
   }
 
   #showStatus(msg) {
