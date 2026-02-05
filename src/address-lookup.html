@@ -1,0 +1,44 @@
+<div class="wrapper">
+  <div class="header">
+    <h2>Address District Lookup</h2>
+    <p class="subtitle">
+      Enter an address to geocode it and look up its election districts via
+      <a href="https://regionflex.com" target="_blank">RegionFlex</a>.
+    </p>
+  </div>
+
+  <div id="token-section">
+    <label class="label" for="token-input">RegionFlex API Token</label>
+    <input id="token-input" type="password" placeholder="Paste your bearer token here" class="input" />
+    <p class="hint">Token is only used in-browser and never sent anywhere else.</p>
+  </div>
+
+  <label class="label" for="address-input">Address</label>
+  <div class="row">
+    <input id="address-input" type="text" placeholder="e.g. 1600 Pennsylvania Ave NW, Washington, DC" class="input flex-1" />
+    <button id="lookup-btn" class="btn"><span class="btn-label">Look Up</span></button>
+  </div>
+
+  <div id="status" class="hidden"></div>
+  <div id="error" class="error hidden"></div>
+
+  <div id="geocode-card" class="card hidden">
+    <h3 class="card-title">Geocoded Location</h3>
+    <p id="geo-name"></p>
+    <div class="coord-row">
+      <span>Lat: <strong id="geo-lat"></strong></span>
+      <span>Lng: <strong id="geo-lng"></strong></span>
+    </div>
+  </div>
+
+  <div id="district-card" class="card hidden">
+    <h3 class="card-title">Election Districts</h3>
+    <ul id="district-list"></ul>
+    <p id="no-districts" class="empty hidden">No districts found for this location.</p>
+  </div>
+
+  <p class="footer">
+    Geocoding via <a href="https://nominatim.openstreetmap.org" target="_blank">Nominatim / OpenStreetMap</a> (demo only).
+    District data via <a href="https://regionflex.com/docs/api/query-features-by-location" target="_blank">RegionFlex API</a>.
+  </p>
+</div>
