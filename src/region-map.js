@@ -13,6 +13,7 @@
 import { API_BASE } from "./config.js";
 import maplibregl from "maplibre-gl";
 import maplibreCSS from "maplibre-gl/dist/maplibre-gl.css?inline";
+import { PMTiles, Protocol } from "pmtiles";
 import styles from "./region-map.css?inline";
 import markup from "./region-map.html?raw";
 
@@ -26,6 +27,11 @@ componentSheet.replaceSync(styles);
 
 const template = document.createElement("template");
 template.innerHTML = markup;
+
+// --- PMTiles protocol (registered once globally) ----------------------------
+
+const pmtilesProtocol = new Protocol();
+maplibregl.addProtocol("pmtiles", pmtilesProtocol.tile);
 
 // --- Base map style (OSM raster tiles, no API key needed) -------------------
 
@@ -42,13 +48,12 @@ const BASE_STYLE = {
   layers: [{ id: "osm", type: "raster", source: "osm" }],
 };
 
-// API_BASE imported from ./config.js
-
 // --- Component --------------------------------------------------------------
 
 class RegionMap extends HTMLElement {
   #map = null;
   #featuresLookup = {};
+  #sourceLayer = "default";
 
   constructor() {
     super();
@@ -63,7 +68,6 @@ class RegionMap extends HTMLElement {
     if (token) {
       this.#el("token-input").value = token;
       this.#el("token-section").classList.add("hidden");
-      // Auto-load when token is provided via attribute
       this.#loadMap();
     } else {
       this.#el("load-btn").addEventListener("click", () => this.#loadMap());
@@ -100,22 +104,29 @@ class RegionMap extends HTMLElement {
       this.#showStatus("Fetching region configuration…");
       const config = await this.#fetchConfig(region, token);
 
-      // Step 2 — Fetch GeoJSON shapes and features metadata in parallel
-      this.#showStatus("Loading region shapes…");
-      const [geojson, features] = await Promise.all([
-        this.#fetchJSON(config.geojson_url, token),
+      // Step 2 — Open PMTiles to read header (bounds) and metadata (layer names)
+      this.#showStatus("Loading vector tiles…");
+      const pm = new PMTiles(config.tiles_url);
+      pmtilesProtocol.add(pm);
+
+      const [header, metadata, featuresRes] = await Promise.all([
+        pm.getHeader(),
+        pm.getMetadata(),
         this.#fetchJSON(config.features_url + "?fields=id,custom_id,name,data", token),
       ]);
 
+      // Discover the source-layer name from PMTiles metadata
+      this.#sourceLayer = metadata.vector_layers?.[0]?.id || "default";
+
       // Build a lookup table: feature_id → feature metadata
       this.#featuresLookup = {};
-      for (const f of (features.data || features)) {
+      for (const f of (featuresRes.data || featuresRes)) {
         this.#featuresLookup[f.id] = f;
       }
 
       // Step 3 — Render the map
       this.#showStatus("Rendering map…");
-      this.#renderMap(geojson);
+      this.#renderMap(config.tiles_url, header);
 
       this.#hideStatus();
     } catch (err) {
@@ -150,9 +161,9 @@ class RegionMap extends HTMLElement {
   }
 
   // -------------------------------------------------------------------------
-  // Map rendering
+  // Map rendering (vector tiles via PMTiles)
   // -------------------------------------------------------------------------
-  #renderMap(geojson) {
+  #renderMap(tilesUrl, header) {
     const container = this.#el("map-container");
 
     if (this.#map) {
@@ -169,9 +180,11 @@ class RegionMap extends HTMLElement {
     });
 
     this.#map.on("load", () => {
+      const sl = this.#sourceLayer;
+
       this.#map.addSource("region", {
-        type: "geojson",
-        data: geojson,
+        type: "vector",
+        url: `pmtiles://${tilesUrl}`,
       });
 
       // Fill layer
@@ -179,6 +192,7 @@ class RegionMap extends HTMLElement {
         id: "region-fill",
         type: "fill",
         source: "region",
+        "source-layer": sl,
         paint: {
           "fill-color": "#3b82f6",
           "fill-opacity": 0.15,
@@ -190,6 +204,7 @@ class RegionMap extends HTMLElement {
         id: "region-outline",
         type: "line",
         source: "region",
+        "source-layer": sl,
         paint: {
           "line-color": "#3b82f6",
           "line-width": 2,
@@ -201,6 +216,7 @@ class RegionMap extends HTMLElement {
         id: "region-hover",
         type: "fill",
         source: "region",
+        "source-layer": sl,
         paint: {
           "fill-color": "#3b82f6",
           "fill-opacity": 0.35,
@@ -208,31 +224,14 @@ class RegionMap extends HTMLElement {
         filter: ["==", ["get", "feature_id"], ""],
       });
 
-      // Fit map to GeoJSON bounds
-      this.#fitBounds(geojson);
+      // Fit map to PMTiles bounds from header
+      this.#map.fitBounds(
+        [[header.minLon, header.minLat], [header.maxLon, header.maxLat]],
+        { padding: 40, maxZoom: 14 },
+      );
 
-      // Interactivity
       this.#setupInteractions();
     });
-  }
-
-  #fitBounds(geojson) {
-    const bounds = new maplibregl.LngLatBounds();
-    const extend = (coords) => {
-      if (typeof coords[0] === "number") {
-        bounds.extend(coords);
-      } else {
-        for (const c of coords) extend(c);
-      }
-    };
-
-    for (const feature of (geojson.features || [])) {
-      extend(feature.geometry.coordinates);
-    }
-
-    if (!bounds.isEmpty()) {
-      this.#map.fitBounds(bounds, { padding: 40, maxZoom: 14 });
-    }
   }
 
   #setupInteractions() {
