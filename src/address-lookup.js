@@ -10,6 +10,7 @@
 //            Can also be entered by the user at runtime via the built-in field.
 // ---------------------------------------------------------------------------
 
+import { API_BASE } from "./config.js";
 import styles from "./address-lookup.css?inline";
 import markup from "./address-lookup.html?raw";
 
@@ -109,7 +110,7 @@ class AddressLookup extends HTMLElement {
   // -------------------------------------------------------------------------
   async #queryDistricts(lat, lng, token) {
     const url =
-      "https://app.regionflex.com/api/v1/query" +
+      API_BASE + "/api/v1/query" +
       "?lat=" + lat +
       "&lng=" + lng +
       "&fields=id,custom_id,name,region_id" +

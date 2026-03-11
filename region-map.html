@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Region Map — Demo</title>
+  <style>
+    body {
+      margin: 0; padding: 3rem 1rem;
+      background: #f9fafb;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .page-title, region-map {
+      max-width: 48rem; margin: 0 auto 0.5rem;
+    }
+    .page-title {
+      font-size: 0.875rem; color: #6b7280; text-transform: uppercase;
+      letter-spacing: 0.05em; font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <p class="page-title">Region Map Widget Demo</p>
+
+  <!--
+    Drop the <region-map> element anywhere in your page.
+    Required: region attribute (UUID, custom_id, or slug).
+    Optional: token attribute to pre-fill the token field.
+
+      <region-map token="rf_live_abc123" region="my-region-slug"></region-map>
+  -->
+  <region-map region="019c871b-604d-71de-9f18-dc7884810fc8"></region-map>
+
+  <script type="module" src="/src/region-map.js"></script>
+</body>
+</html>

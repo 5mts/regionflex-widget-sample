@@ -1,0 +1,995 @@
+openapi: 3.0.3
+info:
+  title: 'RegionFlex API Documentation'
+  description: ''
+  version: 1.0.0
+servers:
+  -
+    url: 'http://regionflex2.test'
+tags:
+  -
+    name: Features
+    description: ''
+  -
+    name: Regions
+    description: "\nMap display configuration and tile source discovery."
+  -
+    name: Tags
+    description: "\nManage tags for projects. Tags are project-scoped labels that can be attached to various models."
+  -
+    name: Tokens
+    description: "\nCheck rate limit status and query historical usage statistics."
+components:
+  securitySchemes:
+    default:
+      type: http
+      scheme: bearer
+      description: 'You can retrieve your token by visiting your dashboard and clicking <b>Generate API token</b>. Use the token as a Bearer token in the Authorization header.'
+security:
+  -
+    default: []
+paths:
+  /api/v1/query:
+    get:
+      summary: 'Query Features by Location'
+      operationId: queryFeaturesByLocation
+      description: "Find features that contain or are near a given geographic point.\n\nWithout radius: Point-in-polygon query (features containing the point)\nWith radius: Proximity query (features within radius meters of point)\n\nResults are filtered by the token's access constraints (regions and tags)."
+      parameters:
+        -
+          in: query
+          name: lat
+          description: 'Latitude coordinate (-90 to 90).'
+          example: 47.6062
+          required: true
+          schema:
+            type: number
+            description: 'Latitude coordinate (-90 to 90).'
+            example: 47.6062
+        -
+          in: query
+          name: lng
+          description: 'Longitude coordinate (-180 to 180).'
+          example: -122.3321
+          required: true
+          schema:
+            type: number
+            description: 'Longitude coordinate (-180 to 180).'
+            example: -122.3321
+        -
+          in: query
+          name: radius
+          description: 'Search radius in meters (max 50000). Enables proximity query.'
+          example: 1000.0
+          required: false
+          schema:
+            type: number
+            description: 'Search radius in meters (max 50000). Enables proximity query.'
+            example: 1000.0
+        -
+          in: query
+          name: 'regions[]'
+          description: 'Region UUIDs, custom_ids, or slugs to filter by (OR logic).'
+          example: null
+          required: false
+          schema:
+            type: array
+            description: 'Region UUIDs, custom_ids, or slugs to filter by (OR logic).'
+            example: null
+            items:
+              type: string
+        -
+          in: query
+          name: 'tags[]'
+          description: 'Tag IDs or slugs to filter by (OR logic).'
+          example: null
+          required: false
+          schema:
+            type: array
+            description: 'Tag IDs or slugs to filter by (OR logic).'
+            example: null
+            items:
+              type: string
+        -
+          in: query
+          name: 'features[]'
+          description: 'Feature IDs or custom_ids to filter by (OR logic).'
+          example: null
+          required: false
+          schema:
+            type: array
+            description: 'Feature IDs or custom_ids to filter by (OR logic).'
+            example: null
+            items:
+              type: string
+        -
+          in: query
+          name: fields
+          description: 'Comma-separated field names to include in response. Default: id,custom_id,name,region_id. Available: id,custom_id,name,region_id,description,data,created_at,updated_at.'
+          example: 'id,custom_id'
+          required: false
+          schema:
+            type: string
+            description: 'Comma-separated field names to include in response. Default: id,custom_id,name,region_id. Available: id,custom_id,name,region_id,description,data,created_at,updated_at.'
+            example: 'id,custom_id'
+        -
+          in: query
+          name: per_page
+          description: 'Results per page (default 20, max 100).'
+          example: 20.0
+          required: false
+          schema:
+            type: number
+            description: 'Results per page (default 20, max 100).'
+            example: 20.0
+        -
+          in: query
+          name: page
+          description: 'Page number.'
+          example: 1.0
+          required: false
+          schema:
+            type: number
+            description: 'Page number.'
+            example: 1.0
+      responses:
+        200:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data:
+                    -
+                      id: 550e8400-e29b-41d4-a716-446655440000
+                      custom_id: SCC-7
+                      name: 'Seattle City Council District 7'
+                      region_id: 550e8400-e29b-41d4-a716-446655440001
+                properties:
+                  data:
+                    type: array
+                    example:
+                      -
+                        id: 550e8400-e29b-41d4-a716-446655440000
+                        custom_id: SCC-7
+                        name: 'Seattle City Council District 7'
+                        region_id: 550e8400-e29b-41d4-a716-446655440001
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: 550e8400-e29b-41d4-a716-446655440000
+                        custom_id:
+                          type: string
+                          example: SCC-7
+                        name:
+                          type: string
+                          example: 'Seattle City Council District 7'
+                        region_id:
+                          type: string
+                          example: 550e8400-e29b-41d4-a716-446655440001
+      tags:
+        - Features
+  /api/v1/geodisplay/configs:
+    post:
+      summary: 'Batch GeoDisplay Configuration'
+      operationId: batchGeoDisplayConfiguration
+      description: "Fetch geodisplay config for multiple regions in a single request.\nAccepts UUIDs, custom_ids, or slugs as identifiers. Returns a keyed\nobject where each key is the identifier you provided.\n\nRegions the token cannot access are silently omitted from the response."
+      parameters: []
+      responses:
+        200:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  my-custom-id:
+                    id: 550e8400-e29b-41d4-a716-446655440000
+                    driver: process
+                    tiles_url: 'https://cdn.example.com/region-id/v3.pmtiles'
+                    geojson_url: 'https://app.example.com/api/v1/regions/{id}/shapes.geojson'
+                    features_url: 'https://app.example.com/api/v1/regions/{id}/features'
+                properties:
+                  my-custom-id:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: 550e8400-e29b-41d4-a716-446655440000
+                      driver:
+                        type: string
+                        example: process
+                      tiles_url:
+                        type: string
+                        example: 'https://cdn.example.com/region-id/v3.pmtiles'
+                      geojson_url:
+                        type: string
+                        example: 'https://app.example.com/api/v1/regions/{id}/shapes.geojson'
+                      features_url:
+                        type: string
+                        example: 'https://app.example.com/api/v1/regions/{id}/features'
+      tags:
+        - Regions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                regions:
+                  type: array
+                  description: 'Array of region identifiers (UUIDs, custom_ids, or slugs). Max 25.'
+                  example:
+                    - uuid-here
+                    - my-custom-id
+                    - some-slug
+                  items:
+                    type: string
+              required:
+                - regions
+  '/api/v1/regions/{region_id}/geodisplay/config':
+    get:
+      summary: 'GeoDisplay Configuration'
+      operationId: geoDisplayConfiguration
+      description: "Single discovery endpoint for map display. Returns tile source URL,\nGeoJSON fallback URL, and features metadata URL. Clients fetch this\nfirst, then use the returned URLs to load tiles and resolve feature\nmetadata on interaction.\n\nTiles carry only shape `id` and `feature_id`. Use `features_url` to\nlook up human-readable names, custom IDs, and custom data."
+      parameters: []
+      responses:
+        200:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  driver: process
+                  tiles_url: 'https://cdn.example.com/region-id/v3.pmtiles'
+                  geojson_url: 'https://app.example.com/api/v1/regions/{id}/shapes.geojson'
+                  features_url: 'https://app.example.com/api/v1/regions/{id}/features'
+                properties:
+                  driver:
+                    type: string
+                    example: process
+                  tiles_url:
+                    type: string
+                    example: 'https://cdn.example.com/region-id/v3.pmtiles'
+                  geojson_url:
+                    type: string
+                    example: 'https://app.example.com/api/v1/regions/{id}/shapes.geojson'
+                  features_url:
+                    type: string
+                    example: 'https://app.example.com/api/v1/regions/{id}/features'
+      tags:
+        - Regions
+    parameters:
+      -
+        in: path
+        name: region_id
+        description: 'The ID of the region.'
+        example: 019c8760-d6f4-716b-9186-7cb59d7fd8db
+        required: true
+        schema:
+          type: string
+  '/api/v1/regions/{region_id}/features':
+    get:
+      summary: 'List Features for a Region'
+      operationId: listFeaturesForARegion
+      description: "Returns all features belonging to a region. Designed for client-side\njoin with vector tile data: tiles carry only `id` and `feature_id`\nper shape — use this endpoint to resolve those IDs into names,\ncustom IDs, and arbitrary data.\n\nThe URL for this endpoint is included in the `features_url` field\nof the `/geodisplay/config` response, so clients don't need to\nconstruct it manually.\n\nBy default returns all features (no pagination) since tile clients\ntypically need the full set to build a lookup table. Use `per_page`\nfor very large regions if needed."
+      parameters:
+        -
+          in: query
+          name: fields
+          description: "Comma-separated fields to include. Default: id,custom_id,name,region_id.\n            Available: id,custom_id,name,region_id,description,data,created_at,updated_at."
+          example: 'fields=id,name,custom_id,data'
+          required: false
+          schema:
+            type: string
+            description: "Comma-separated fields to include. Default: id,custom_id,name,region_id.\n            Available: id,custom_id,name,region_id,description,data,created_at,updated_at."
+            example: 'fields=id,name,custom_id,data'
+        -
+          in: query
+          name: per_page
+          description: 'Results per page. Omit for all results. Max: 10000.'
+          example: 16
+          required: false
+          schema:
+            type: integer
+            description: 'Results per page. Omit for all results. Max: 10000.'
+            example: 16
+        -
+          in: query
+          name: page
+          description: 'Page number (only when per_page is set).'
+          example: 16
+          required: false
+          schema:
+            type: integer
+            description: 'Page number (only when per_page is set).'
+            example: 16
+      responses:
+        200:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data:
+                    -
+                      id: uuid
+                      custom_id: district-01
+                      name: Downtown
+                      region_id: uuid
+                properties:
+                  data:
+                    type: array
+                    example:
+                      -
+                        id: uuid
+                        custom_id: district-01
+                        name: Downtown
+                        region_id: uuid
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: uuid
+                        custom_id:
+                          type: string
+                          example: district-01
+                        name:
+                          type: string
+                          example: Downtown
+                        region_id:
+                          type: string
+                          example: uuid
+      tags:
+        - Regions
+    parameters:
+      -
+        in: path
+        name: region_id
+        description: 'The ID of the region.'
+        example: 019c8760-d6f4-716b-9186-7cb59d7fd8db
+        required: true
+        schema:
+          type: string
+  /api/v1/tags:
+    get:
+      summary: 'List Tags'
+      operationId: listTags
+      description: 'Get all tags accessible by the token. Optionally filter by project.'
+      parameters:
+        -
+          in: query
+          name: project_id
+          description: 'Filter tags to a specific project UUID.'
+          example: 550e8400-e29b-41d4-a716-446655440000
+          required: false
+          schema:
+            type: string
+            description: 'Filter tags to a specific project UUID.'
+            example: 550e8400-e29b-41d4-a716-446655440000
+        -
+          in: query
+          name: search
+          description: 'Search tags by name or slug.'
+          example: design
+          required: false
+          schema:
+            type: string
+            description: 'Search tags by name or slug.'
+            example: design
+        -
+          in: query
+          name: per_page
+          description: 'Number of items per page. Default: 10.'
+          example: 20
+          required: false
+          schema:
+            type: integer
+            description: 'Number of items per page. Default: 10.'
+            example: 20
+        -
+          in: query
+          name: page
+          description: 'Page number. Default: 1.'
+          example: 2
+          required: false
+          schema:
+            type: integer
+            description: 'Page number. Default: 1.'
+            example: 2
+        -
+          in: query
+          name: sort
+          description: 'Sort field. Allowed: name, created_at. Default: name.'
+          example: name
+          required: false
+          schema:
+            type: string
+            description: 'Sort field. Allowed: name, created_at. Default: name.'
+            example: name
+      responses:
+        200:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data:
+                    -
+                      id: 550e8400-e29b-41d4-a716-446655440000
+                      name: Design
+                      slug: design
+                      context_type: App\Models\Project
+                      context_id: 550e8400-e29b-41d4-a716-446655440001
+                      order_column: 1
+                  links:
+                    first: 'https://example.com/api/v1/tags?page=1'
+                    last: 'https://example.com/api/v1/tags?page=1'
+                    prev: null
+                    next: null
+                  meta:
+                    current_page: 1
+                    from: 1
+                    last_page: 1
+                    per_page: 10
+                    to: 1
+                    total: 1
+                properties:
+                  data:
+                    type: array
+                    example:
+                      -
+                        id: 550e8400-e29b-41d4-a716-446655440000
+                        name: Design
+                        slug: design
+                        context_type: App\Models\Project
+                        context_id: 550e8400-e29b-41d4-a716-446655440001
+                        order_column: 1
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: 550e8400-e29b-41d4-a716-446655440000
+                        name:
+                          type: string
+                          example: Design
+                        slug:
+                          type: string
+                          example: design
+                        context_type:
+                          type: string
+                          example: App\Models\Project
+                        context_id:
+                          type: string
+                          example: 550e8400-e29b-41d4-a716-446655440001
+                        order_column:
+                          type: integer
+                          example: 1
+                  links:
+                    type: object
+                    properties:
+                      first:
+                        type: string
+                        example: 'https://example.com/api/v1/tags?page=1'
+                      last:
+                        type: string
+                        example: 'https://example.com/api/v1/tags?page=1'
+                      prev:
+                        type: string
+                        example: null
+                        nullable: true
+                      next:
+                        type: string
+                        example: null
+                        nullable: true
+                  meta:
+                    type: object
+                    properties:
+                      current_page:
+                        type: integer
+                        example: 1
+                      from:
+                        type: integer
+                        example: 1
+                      last_page:
+                        type: integer
+                        example: 1
+                      per_page:
+                        type: integer
+                        example: 10
+                      to:
+                        type: integer
+                        example: 1
+                      total:
+                        type: integer
+                        example: 1
+      tags:
+        - Tags
+    post:
+      summary: 'Create Tag'
+      operationId: createTag
+      description: 'Create a new tag for a project. The token must have access to the specified project.'
+      parameters: []
+      responses:
+        201:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  id: 550e8400-e29b-41d4-a716-446655440000
+                  name: 'Design System'
+                  slug: design-system
+                  context_type: App\Models\Project
+                  context_id: 550e8400-e29b-41d4-a716-446655440001
+                  order_column: 1
+                properties:
+                  id:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  name:
+                    type: string
+                    example: 'Design System'
+                  slug:
+                    type: string
+                    example: design-system
+                  context_type:
+                    type: string
+                    example: App\Models\Project
+                  context_id:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440001
+                  order_column:
+                    type: integer
+                    example: 1
+        403:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  message: 'You do not have access to this project'
+                properties:
+                  message:
+                    type: string
+                    example: 'You do not have access to this project'
+      tags:
+        - Tags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 'The name of the tag. Max 255 characters.'
+                  example: 'Design System'
+                slug:
+                  type: string
+                  description: 'The URL-friendly slug.'
+                  example: design-system
+                project_id:
+                  type: string
+                  description: 'The UUID of the project. Must be accessible by the token.'
+                  example: 550e8400-e29b-41d4-a716-446655440000
+              required:
+                - name
+                - project_id
+  '/api/v1/tags/{id}':
+    get:
+      summary: 'Get Tag'
+      operationId: getTag
+      description: 'Get a specific tag by ID.'
+      parameters: []
+      responses:
+        200:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  id: 550e8400-e29b-41d4-a716-446655440000
+                  name: 'Design System'
+                  slug: design-system
+                  context_type: App\Models\Project
+                  context_id: 550e8400-e29b-41d4-a716-446655440001
+                  order_column: 1
+                properties:
+                  id:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  name:
+                    type: string
+                    example: 'Design System'
+                  slug:
+                    type: string
+                    example: design-system
+                  context_type:
+                    type: string
+                    example: App\Models\Project
+                  context_id:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440001
+                  order_column:
+                    type: integer
+                    example: 1
+      tags:
+        - Tags
+    patch:
+      summary: 'Update Tag'
+      operationId: updateTag
+      description: 'Update an existing tag.'
+      parameters: []
+      responses:
+        200:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  id: 550e8400-e29b-41d4-a716-446655440000
+                  name: 'Design System'
+                  slug: design-system
+                  context_type: App\Models\Project
+                  context_id: 550e8400-e29b-41d4-a716-446655440001
+                  order_column: 1
+                properties:
+                  id:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  name:
+                    type: string
+                    example: 'Design System'
+                  slug:
+                    type: string
+                    example: design-system
+                  context_type:
+                    type: string
+                    example: App\Models\Project
+                  context_id:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440001
+                  order_column:
+                    type: integer
+                    example: 1
+      tags:
+        - Tags
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 'The name of the tag. Max 255 characters.'
+                  example: 'Design System'
+                slug:
+                  type: string
+                  description: 'The URL-friendly slug.'
+                  example: design-system
+    delete:
+      summary: 'Delete Tag'
+      operationId: deleteTag
+      description: 'Delete a tag.'
+      parameters: []
+      responses:
+        204:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example: {  }
+                properties: {  }
+      tags:
+        - Tags
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The tag UUID or slug.'
+        example: design-system
+        required: true
+        schema:
+          type: string
+  /api/v1/usage/status:
+    get:
+      summary: 'Get current rate limit status and remaining quota.'
+      operationId: getCurrentRateLimitStatusAndRemainingQuota
+      description: ''
+      parameters: []
+      responses:
+        401:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  message: Unauthenticated.
+                properties:
+                  message:
+                    type: string
+                    example: Unauthenticated.
+      tags:
+        - Tokens
+  /api/v1/usage/stats:
+    get:
+      summary: 'Get historical usage statistics.'
+      operationId: getHistoricalUsageStatistics
+      description: ''
+      parameters: []
+      responses:
+        401:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  message: Unauthenticated.
+                properties:
+                  message:
+                    type: string
+                    example: Unauthenticated.
+      tags:
+        - Tokens
+  /api/v1/tokens:
+    post:
+      summary: 'Create Token'
+      operationId: createToken
+      description: "Create a new view-only API token. The calling token must have:\n- `tokens:createViewToken` ability\n- At least one Project constraint (to define the scope boundary)\n\nThe created token will only have `regions:view` ability and can be\nconstrained to specific Regions or Tags within the parent's project(s)."
+      parameters: []
+      responses:
+        201:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  token: 1|abcdefghijklmnopqrstuvwxyz123456
+                  id: 550e8400-e29b-41d4-a716-446655440000
+                  name: 'My Client Token'
+                  abilities:
+                    - 'regions:view'
+                  constraints:
+                    -
+                      type: Region
+                      id: 550e8400-e29b-41d4-a716-446655440001
+                  expires_at: '2025-12-31T23:59:59.000000Z'
+                  created_at: '2025-01-28T10:00:00.000000Z'
+                properties:
+                  token:
+                    type: string
+                    example: 1|abcdefghijklmnopqrstuvwxyz123456
+                  id:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  name:
+                    type: string
+                    example: 'My Client Token'
+                  abilities:
+                    type: array
+                    example:
+                      - 'regions:view'
+                    items:
+                      type: string
+                  constraints:
+                    type: array
+                    example:
+                      -
+                        type: Region
+                        id: 550e8400-e29b-41d4-a716-446655440001
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          example: Region
+                        id:
+                          type: string
+                          example: 550e8400-e29b-41d4-a716-446655440001
+                  expires_at:
+                    type: string
+                    example: '2025-12-31T23:59:59.000000Z'
+                  created_at:
+                    type: string
+                    example: '2025-01-28T10:00:00.000000Z'
+        403:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  message: 'Token lacks tokens:createViewToken ability'
+                properties:
+                  message:
+                    type: string
+                    example: 'Token lacks tokens:createViewToken ability'
+        422:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  message: 'Region xyz is not in the allowed project(s)'
+                properties:
+                  message:
+                    type: string
+                    example: 'Region xyz is not in the allowed project(s)'
+      tags:
+        - Tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 'The name for the new token. Max 255 characters.'
+                  example: 'My Client Token'
+                constraints:
+                  type: array
+                  description: 'Optional constraints to scope the token. Each object has `type` (App\Models\Region or App\Models\Tag) and `id` (UUID of the resource).'
+                  example:
+                    -
+                      type: App\Models\Region
+                      id: 550e8400-e29b-41d4-a716-446655440001
+                  items:
+                    type: object
+                expires_at:
+                  type: string
+                  description: 'Optional expiration date (ISO 8601).'
+                  example: '2025-12-31T23:59:59Z'
+              required:
+                - name
+  '/api/v1/tokens/{id}':
+    patch:
+      summary: 'Update Token'
+      operationId: updateToken
+      description: "Update a child token that was created by the calling token. The calling token must have:\n- `tokens:updateOwnChildren` ability\n- Be the parent of the token being updated (parent_id must match)\n\nNote: Abilities cannot be changed - they remain locked to `regions:view`."
+      parameters: []
+      responses:
+        200:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  id: 550e8400-e29b-41d4-a716-446655440000
+                  name: 'Updated Token Name'
+                  abilities:
+                    - 'regions:view'
+                  constraints:
+                    -
+                      type: Region
+                      id: 550e8400-e29b-41d4-a716-446655440001
+                  expires_at: '2025-12-31T23:59:59.000000Z'
+                  updated_at: '2025-01-28T10:00:00.000000Z'
+                properties:
+                  id:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  name:
+                    type: string
+                    example: 'Updated Token Name'
+                  abilities:
+                    type: array
+                    example:
+                      - 'regions:view'
+                    items:
+                      type: string
+                  constraints:
+                    type: array
+                    example:
+                      -
+                        type: Region
+                        id: 550e8400-e29b-41d4-a716-446655440001
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          example: Region
+                        id:
+                          type: string
+                          example: 550e8400-e29b-41d4-a716-446655440001
+                  expires_at:
+                    type: string
+                    example: '2025-12-31T23:59:59.000000Z'
+                  updated_at:
+                    type: string
+                    example: '2025-01-28T10:00:00.000000Z'
+        403:
+          description: ''
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  -
+                    description: ''
+                    type: object
+                    example:
+                      message: 'Token lacks tokens:updateOwnChildren ability'
+                    properties:
+                      message:
+                        type: string
+                        example: 'Token lacks tokens:updateOwnChildren ability'
+                  -
+                    description: ''
+                    type: object
+                    example:
+                      message: 'You can only update tokens you created'
+                    properties:
+                      message:
+                        type: string
+                        example: 'You can only update tokens you created'
+        422:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  message: 'Region xyz is not in the allowed project(s)'
+                properties:
+                  message:
+                    type: string
+                    example: 'Region xyz is not in the allowed project(s)'
+      tags:
+        - Tokens
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 'The new name for the token. Max 255 characters.'
+                  example: 'Updated Token Name'
+                constraints:
+                  type: array
+                  description: 'Optional constraints to scope the token. Each object has `type` (App\Models\Region or App\Models\Tag) and `id` (UUID of the resource).'
+                  example:
+                    -
+                      type: App\Models\Region
+                      id: 550e8400-e29b-41d4-a716-446655440001
+                  items:
+                    type: object
+                expires_at:
+                  type: string
+                  description: 'Optional expiration date (ISO 8601). Use null to remove expiration.'
+                  example: '2025-12-31T23:59:59Z'
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The UUID of the token to update.'
+        example: 550e8400-e29b-41d4-a716-446655440000
+        required: true
+        schema:
+          type: string
