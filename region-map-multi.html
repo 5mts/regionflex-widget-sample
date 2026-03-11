@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-Region Overlap Map — Demo</title>
+  <style>
+    body {
+      margin: 0; padding: 3rem 1rem;
+      background: #f9fafb;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .page-title, region-map-multi {
+      max-width: 52rem; margin: 0 auto 0.5rem;
+    }
+    .page-title {
+      font-size: 0.875rem; color: #6b7280; text-transform: uppercase;
+      letter-spacing: 0.05em; font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <p class="page-title">Multi-Region Overlap Map Demo</p>
+
+  <!--
+    Provide two or more region identifiers (UUIDs, custom_ids, or slugs)
+    separated by commas. Optionally provide a token.
+
+      <region-map-multi
+        token="rf_live_abc123"
+        regions="region-a,region-b">
+      </region-map-multi>
+  -->
+  <region-map-multi
+    regions="019c871b-604d-71de-9f18-dc7884810fc8,019cddd4-cebf-712e-a5c4-01b8572afc13">
+  </region-map-multi>
+
+  <script type="module" src="/src/region-map-multi.js"></script>
+</body>
+</html>

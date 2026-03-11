@@ -11,6 +11,9 @@
     "vite": "^6"
   },
   "dependencies": {
+    "@turf/bbox": "^7.3.4",
+    "@turf/helpers": "^7.3.4",
+    "@turf/intersect": "^7.3.4",
     "maplibre-gl": "^5.20.0"
   }
 }

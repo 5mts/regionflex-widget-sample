@@ -11,6 +11,7 @@ export default defineConfig({
       input: {
         "address-lookup": resolve(__dirname, "index.html"),
         "region-map": resolve(__dirname, "region-map.html"),
+        "region-map-multi": resolve(__dirname, "region-map-multi.html"),
       },
     },
   },

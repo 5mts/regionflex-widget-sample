@@ -1,0 +1,22 @@
+<div class="wrapper">
+  <div id="token-section" class="token-section">
+    <label class="label" for="token-input">RegionFlex API Token</label>
+    <div class="row">
+      <input id="token-input" type="password" placeholder="Paste your bearer token here" class="input flex-1" />
+      <button id="load-btn" class="btn"><span class="btn-label">Load Map</span></button>
+    </div>
+    <p class="hint">Token is only used in-browser and never sent anywhere else.</p>
+  </div>
+
+  <div id="error" class="error hidden"></div>
+  <div id="status" class="status hidden"></div>
+
+  <div id="map-container" class="map-container"></div>
+
+  <div id="legend" class="legend hidden"></div>
+
+  <p class="footer">
+    Map tiles &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors.
+    Region data via <a href="https://regionflex.com/docs" target="_blank">RegionFlex API</a>.
+  </p>
+</div>
