@@ -1,13 +1,13 @@
 // ---------------------------------------------------------------------------
 // <region-map-multi> Web Component
 //
-// Displays multiple RegionFlex regions on a single map with overlap analysis.
-// Rendering uses PMTiles vector tiles. GeoJSON is fetched separately per
-// region so Turf.js can compute clean (non-tile-clipped) intersection geometry.
+// Displays multiple RegionFlex regions on a single map. All rendering uses
+// PMTiles vector tiles — no GeoJSON fetches, no client-side geometry math.
 //
 // Default state: outlines only — no fill.
-// Hover: reveals the overlap geometry (intersection) and highlights the full
-//        extent of each contributing feature in its region's color.
+// Hover: each region's hovered feature gets a translucent fill in its color.
+//        Where regions overlap on screen, the fills naturally stack, producing
+//        a visibly denser/blended area.
 //
 // Usage:
 //   <region-map-multi
@@ -25,8 +25,6 @@ import { API_BASE } from "./config.js";
 import maplibregl from "maplibre-gl";
 import maplibreCSS from "maplibre-gl/dist/maplibre-gl.css?inline";
 import { PMTiles, Protocol } from "pmtiles";
-import { intersect } from "@turf/intersect";
-import { featureCollection } from "@turf/helpers";
 import styles from "./region-map-multi.css?inline";
 import markup from "./region-map-multi.html?raw";
 
@@ -55,8 +53,6 @@ const REGION_COLORS = [
   "#ef4444", // red
 ];
 
-const OVERLAP_COLOR = "#8b5cf6"; // purple
-
 // --- Base map style (OSM raster, no API key) --------------------------------
 
 const BASE_STYLE = {
@@ -77,10 +73,8 @@ const BASE_STYLE = {
 
 class RegionMapMulti extends HTMLElement {
   #map = null;
-  #regionData = [];      // [{ key, config, header, sourceLayer, features, lookup, color, geomLookup }]
+  #regionData = [];      // [{ key, config, header, sourceLayer, features, lookup, color }]
   #regionCount = 0;
-  #overlapCache = {};    // "fidA\0fidB" → [GeoJSON Feature, …] (pre-computed intersections)
-  #prevHoverKey = "";    // tracks hovered feature_ids to avoid redundant intersection calls
 
   constructor() {
     super();
@@ -131,8 +125,8 @@ class RegionMapMulti extends HTMLElement {
       this.#showStatus("Fetching region configurations…");
       const configs = await this.#fetchConfigs(regionIds, token);
 
-      // 2 — For each region: open PMTiles (header + metadata), fetch feature
-      //     metadata, and fetch GeoJSON for clean intersection geometry.
+      // 2 — For each region: open PMTiles (header + metadata) and fetch
+      //     feature metadata for popups.
       this.#showStatus("Loading region data…");
       this.#regionData = await Promise.all(
         regionIds.map(async (key, i) => {
@@ -143,42 +137,25 @@ class RegionMapMulti extends HTMLElement {
           const pm = new PMTiles(config.tiles_url);
           pmtilesProtocol.add(pm);
 
-          const [header, metadata, featuresRes, geojson] = await Promise.all([
+          const [header, metadata, featuresRes] = await Promise.all([
             pm.getHeader(),
             pm.getMetadata(),
             this.#fetchJSON(config.features_url + "?fields=id,custom_id,name,data", token),
-            this.#fetchJSON(config.geojson_url, token),
           ]);
 
           const sourceLayer = metadata.vector_layers?.[0]?.id || "default";
           const features = featuresRes.data || featuresRes;
           const lookup = Object.fromEntries(features.map((f) => [f.id, f]));
 
-          // Build geometry lookup: feature_id → [GeoJSON Feature, …]
-          // A single feature can have multiple shapes (separate polygons),
-          // so we collect them all into an array per feature_id.
-          const geomLookup = {};
-          const geoFeatures = geojson.features || [];
-          for (const f of geoFeatures) {
-            const fid = f.properties?.feature_id || f.properties?.id || f.id;
-            if (!fid) continue;
-            (geomLookup[fid] ??= []).push(f);
-          }
-
           return {
-            key, config, header, sourceLayer, features, lookup, geomLookup,
+            key, config, header, sourceLayer, features, lookup,
             color: REGION_COLORS[i % REGION_COLORS.length],
           };
         }),
       );
       this.#regionCount = this.#regionData.length;
 
-      // 3 — Pre-compute all pairwise intersections across regions so
-      //     hover lookups are instant (no Turf.js work at interaction time).
-      this.#showStatus("Computing overlaps…");
-      this.#precomputeOverlaps();
-
-      // 4 — Render map.
+      // 3 — Render map.
       this.#showStatus("Rendering map…");
       this.#renderMap();
       this.#buildLegend();
@@ -219,9 +196,8 @@ class RegionMapMulti extends HTMLElement {
   }
 
   // -------------------------------------------------------------------------
-  // Map rendering — vector tiles via PMTiles for all regions.
-  // Overlap intersection is computed on-the-fly at hover time using
-  // full GeoJSON geometry (fetched separately) + Turf.js.
+  // Map rendering — 100% vector tiles via PMTiles.
+  // Overlap is shown visually by stacking translucent fills from each region.
   // -------------------------------------------------------------------------
   #renderMap() {
     const container = this.#el("map-container");
@@ -244,19 +220,12 @@ class RegionMapMulti extends HTMLElement {
   }
 
   #addSources() {
-    // Region sources — vector tiles from PMTiles
     for (let i = 0; i < this.#regionCount; i++) {
       this.#map.addSource(`region-${i}`, {
         type: "vector",
         url: `pmtiles://${this.#regionData[i].config.tiles_url}`,
       });
     }
-
-    // Overlap source — starts empty, populated on-the-fly during hover
-    this.#map.addSource("overlaps", {
-      type: "geojson",
-      data: { type: "FeatureCollection", features: [] },
-    });
   }
 
   #addLayers() {
@@ -275,13 +244,14 @@ class RegionMapMulti extends HTMLElement {
         paint: { "fill-color": color, "fill-opacity": 0.001 },
       });
 
-      // Hover fill — visible only for hovered features
+      // Hover fill — only shown when 2+ regions overlap at cursor.
+      // Each region's fill stacks visually to highlight the shared area.
       this.#map.addLayer({
         id: `region-${i}-hover`,
         type: "fill",
         source: `region-${i}`,
         "source-layer": sl,
-        paint: { "fill-color": color, "fill-opacity": 0.18 },
+        paint: { "fill-color": color, "fill-opacity": 0.2 },
         filter: NONE,
       });
 
@@ -304,26 +274,6 @@ class RegionMapMulti extends HTMLElement {
         filter: NONE,
       });
     }
-
-    // Overlap layers — rendered from the dynamic GeoJSON source.
-    // Source data is updated on hover; layers just render whatever is in it.
-    this.#map.addLayer({
-      id: "overlap-fill",
-      type: "fill",
-      source: "overlaps",
-      paint: { "fill-color": OVERLAP_COLOR, "fill-opacity": 1 },
-    });
-
-    this.#map.addLayer({
-      id: "overlap-outline",
-      type: "line",
-      source: "overlaps",
-      paint: {
-        "line-color": OVERLAP_COLOR,
-        "line-width": 2.5,
-        "line-opacity": 1,
-      },
-    });
   }
 
   // -------------------------------------------------------------------------
@@ -344,61 +294,20 @@ class RegionMapMulti extends HTMLElement {
   }
 
   // -------------------------------------------------------------------------
-  // Pre-compute overlap intersections
-  //
-  // For every pair of regions (A, B), intersect every feature in A with
-  // every feature in B using Turf.js. Results are cached in #overlapCache
-  // keyed by "fidA\0fidB" (sorted so order doesn't matter). This moves
-  // all expensive geometry math to load time; hover just does a lookup.
-  // -------------------------------------------------------------------------
-  #precomputeOverlaps() {
-    this.#overlapCache = {};
-
-    for (let a = 0; a < this.#regionCount; a++) {
-      for (let b = a + 1; b < this.#regionCount; b++) {
-        const lookupA = this.#regionData[a].geomLookup;
-        const lookupB = this.#regionData[b].geomLookup;
-
-        for (const [fidA, shapesA] of Object.entries(lookupA)) {
-          for (const [fidB, shapesB] of Object.entries(lookupB)) {
-            const results = [];
-            for (const sA of shapesA) {
-              for (const sB of shapesB) {
-                try {
-                  const inter = intersect(featureCollection([sA, sB]));
-                  if (inter) results.push(inter);
-                } catch (_) { /* skip invalid geometry pairs */ }
-              }
-            }
-            if (results.length) {
-              const key = fidA < fidB ? `${fidA}\0${fidB}` : `${fidB}\0${fidA}`;
-              this.#overlapCache[key] = results;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // -------------------------------------------------------------------------
   // Hover interactions
   //
-  // On mousemove:
-  //   1. Query each region's hit layer for features at cursor (just to
-  //      identify which feature_ids are under the mouse)
-  //   2. If 2+ regions have features → look up pre-computed intersections
-  //   3. Update region hover layer filters
-  //
-  // All Turf.js work was done at load time; hover is a cache lookup.
+  // On mousemove: highlight hovered features with translucent fill + bold
+  // outline. Where 2+ regions share screen space, their fills naturally
+  // stack — producing a visibly denser area that indicates overlap.
   // -------------------------------------------------------------------------
   #setupInteractions() {
     const map = this.#map;
     let popup = null;
-    const EMPTY_FC = { type: "FeatureCollection", features: [] };
+    const NONE = ["==", ["get", "feature_id"], "__none__"];
 
     map.on("mousemove", (e) => {
-      // 1. Find feature_ids at cursor from each region
-      const hoveredIds = new Map();    // regionIndex → Set<feature_id>
+      // Collect hovered feature_ids per region
+      const hoveredIds = new Map(); // regionIndex → Set<feature_id>
 
       for (let i = 0; i < this.#regionCount; i++) {
         const hits = map.queryRenderedFeatures(e.point, {
@@ -414,61 +323,20 @@ class RegionMapMulti extends HTMLElement {
         if (ids.size) hoveredIds.set(i, ids);
       }
 
-      // Build a key from hovered feature_ids to detect changes
-      const keyParts = [];
-      for (const [i, ids] of hoveredIds) {
-        keyParts.push(`${i}:${[...ids].sort().join(",")}`);
-      }
-      const hoverKey = keyParts.join("|");
-
-      // 2. If the hovered features changed, look up pre-computed overlaps
-      if (hoverKey !== this.#prevHoverKey) {
-        this.#prevHoverKey = hoverKey;
-
-        if (hoveredIds.size >= 2) {
-          // Collect all feature_ids across different regions, then look up
-          // every cross-region pair in the pre-computed cache.
-          const regionIndices = [...hoveredIds.keys()];
-          const overlaps = [];
-
-          for (let a = 0; a < regionIndices.length; a++) {
-            for (let b = a + 1; b < regionIndices.length; b++) {
-              for (const fidA of hoveredIds.get(regionIndices[a])) {
-                for (const fidB of hoveredIds.get(regionIndices[b])) {
-                  const key = fidA < fidB ? `${fidA}\0${fidB}` : `${fidB}\0${fidA}`;
-                  const cached = this.#overlapCache[key];
-                  if (cached) overlaps.push(...cached);
-                }
-              }
-            }
-          }
-
-          map.getSource("overlaps").setData(
-            overlaps.length > 0
-              ? { type: "FeatureCollection", features: overlaps }
-              : EMPTY_FC,
-          );
-        } else {
-          map.getSource("overlaps").setData(EMPTY_FC);
-        }
-      }
-
-      // 3. Update region hover layers
-      const anythingHovered = hoveredIds.size > 0;
+      // Update layers for each region
       for (let i = 0; i < this.#regionCount; i++) {
         const ids = hoveredIds.get(i);
-        if (ids && ids.size > 0) {
+        if (ids) {
           const filterExpr = ["in", ["get", "feature_id"], ["literal", [...ids]]];
-          map.setFilter(`region-${i}-hover`, filterExpr);
           map.setFilter(`region-${i}-outline-hover`, filterExpr);
+          map.setFilter(`region-${i}-hover`, filterExpr);
         } else {
-          const none = ["==", ["get", "feature_id"], "__none__"];
-          map.setFilter(`region-${i}-hover`, none);
-          map.setFilter(`region-${i}-outline-hover`, none);
+          map.setFilter(`region-${i}-hover`, NONE);
+          map.setFilter(`region-${i}-outline-hover`, NONE);
         }
       }
 
-      map.getCanvas().style.cursor = anythingHovered ? "pointer" : "";
+      map.getCanvas().style.cursor = hoveredIds.size > 0 ? "pointer" : "";
     });
 
     // Click → popup with feature details
@@ -521,19 +389,18 @@ class RegionMapMulti extends HTMLElement {
 
     for (let i = 0; i < this.#regionCount; i++) {
       const rd = this.#regionData[i];
-      legend.appendChild(this.#legendItem(rd.color, rd.key, false));
+      legend.appendChild(this.#legendItem(rd.color, rd.key));
     }
 
-    legend.appendChild(this.#legendItem(OVERLAP_COLOR, "Overlap (hover to reveal)", true));
     legend.classList.remove("hidden");
   }
 
-  #legendItem(color, label, isOverlap) {
+  #legendItem(color, label) {
     const item = document.createElement("div");
     item.className = "legend-item";
 
     const swatch = document.createElement("span");
-    swatch.className = "legend-swatch" + (isOverlap ? " legend-swatch--overlap" : "");
+    swatch.className = "legend-swatch";
     swatch.style.setProperty("--swatch-color", color);
 
     const text = document.createElement("span");
